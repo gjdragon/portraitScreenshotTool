@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QLabel,
                              QSystemTrayIcon, QMenu, QAction, QVBoxLayout, 
                              QHBoxLayout, QLineEdit, QPushButton, QSpinBox, 
                              QFileDialog, QMessageBox, QGroupBox, QCheckBox,
-                             QRadioButton, QButtonGroup)
+                             QRadioButton, QButtonGroup, QComboBox, QInputDialog)
 from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal, QTimer, QThread
 from PyQt5.QtGui import QPainter, QColor, QPen, QPixmap, QIcon
 import keyboard
@@ -662,7 +662,7 @@ class PortraitScreenshotApp(QMainWindow):
         self.hotkey_thread = None
         self.is_exiting = False
         
-        self.setWindowTitle("Portrait Screenshot Tool v1.8.1")
+        self.setWindowTitle("Portrait Screenshot Tool v1.9.0")
         self.setGeometry(300, 300, 450, 350)
         
         self.init_ui()
@@ -682,7 +682,8 @@ class PortraitScreenshotApp(QMainWindow):
             'lock_ratio': True,    # NEW: Track if ratio is locked
             'last_capture_rect': None,  # DEPRECATED: kept for backwards compatibility
             'copy_to_clipboard': True,
-            'file_prefix': ''
+            'file_prefix': '',
+            'profiles': {}
         }
         
         try:
@@ -714,6 +715,37 @@ class PortraitScreenshotApp(QMainWindow):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
         
+        # ── Profiles ──────────────────────────────────────────────────────────
+        profiles_group = QGroupBox("Profiles")
+        profiles_layout = QHBoxLayout()
+
+        profiles_layout.addWidget(QLabel("Profile:"))
+        self.profile_combo = QComboBox()
+        self.profile_combo.setMinimumWidth(150)
+        self.profile_combo.addItem("— select profile —")
+        for name in sorted(self.settings.get('profiles', {}).keys()):
+            self.profile_combo.addItem(name)
+        profiles_layout.addWidget(self.profile_combo, 3)
+
+        load_profile_btn = QPushButton("Load")
+        load_profile_btn.setToolTip("Load the selected profile")
+        load_profile_btn.clicked.connect(self.load_profile)
+        profiles_layout.addWidget(load_profile_btn)
+
+        save_profile_btn = QPushButton("Save as…")
+        save_profile_btn.setToolTip("Save current settings as a new profile")
+        save_profile_btn.clicked.connect(self.save_profile)
+        profiles_layout.addWidget(save_profile_btn)
+
+        delete_profile_btn = QPushButton("Delete")
+        delete_profile_btn.setToolTip("Delete the selected profile")
+        delete_profile_btn.clicked.connect(self.delete_profile)
+        profiles_layout.addWidget(delete_profile_btn)
+
+        profiles_group.setLayout(profiles_layout)
+        layout.addWidget(profiles_group)
+        # ──────────────────────────────────────────────────────────────────────
+
         settings_group = QGroupBox("Settings")
         settings_layout = QVBoxLayout()
         
@@ -958,6 +990,138 @@ class PortraitScreenshotApp(QMainWindow):
             height = self.height_spin.value()
             self.ratio_label.setText(f"Custom dimensions: {width} × {height} px (ratio unlocked)")
     
+    # ── Profile management ────────────────────────────────────────────────────
+
+    def _profile_settings_snapshot(self):
+        """Return a dict of the settings that belong in a profile."""
+        keys = [
+            'hotkey', 'save_location', 'file_prefix',
+            'portrait_width', 'portrait_height',
+            'ratio_mode', 'lock_ratio', 'copy_to_clipboard',
+            'last_capture_rect_9:16', 'last_capture_rect_16:9',
+        ]
+        return {k: self.settings[k] for k in keys if k in self.settings}
+
+    def save_profile(self):
+        """Prompt the user for a name and save the current settings as a profile."""
+        name, ok = QInputDialog.getText(
+            self, "Save Profile", "Profile name:",
+        )
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+
+        # First apply any unsaved UI changes into self.settings
+        self.settings['hotkey'] = self.hotkey_input.text()
+        self.settings['save_location'] = self.save_input.text()
+        self.settings['file_prefix'] = self.prefix_input.text()
+        self.settings['portrait_width'] = self.width_spin.value()
+        self.settings['portrait_height'] = self.height_spin.value()
+        self.settings['lock_ratio'] = self.lock_ratio_checkbox.isChecked()
+        self.settings['ratio_mode'] = '9:16' if self.ratio_9_16.isChecked() else '16:9'
+        self.settings['copy_to_clipboard'] = self.copy_to_clipboard_checkbox.isChecked()
+
+        if 'profiles' not in self.settings:
+            self.settings['profiles'] = {}
+        self.settings['profiles'][name] = self._profile_settings_snapshot()
+        self.save_settings()
+
+        # Update the combo box
+        if self.profile_combo.findText(name) == -1:
+            self.profile_combo.addItem(name)
+            # Re-sort: rebuild the list
+            all_names = sorted(
+                self.settings['profiles'].keys()
+            )
+            self.profile_combo.clear()
+            self.profile_combo.addItem("— select profile —")
+            for n in all_names:
+                self.profile_combo.addItem(n)
+
+        # Select the saved profile in the dropdown
+        idx = self.profile_combo.findText(name)
+        if idx >= 0:
+            self.profile_combo.setCurrentIndex(idx)
+
+        QMessageBox.information(self, "Profile Saved", f'Profile "{name}" saved successfully!')
+
+    def load_profile(self):
+        """Load the selected profile into the UI."""
+        name = self.profile_combo.currentText()
+        if name == "— select profile —" or not name:
+            QMessageBox.warning(self, "No Profile Selected", "Please select a profile from the dropdown first.")
+            return
+
+        profiles = self.settings.get('profiles', {})
+        if name not in profiles:
+            QMessageBox.warning(self, "Profile Not Found", f'Profile "{name}" could not be found.')
+            return
+
+        data = profiles[name]
+
+        # Apply the stored values into settings
+        self.settings.update(data)
+
+        # Refresh UI widgets
+        self.hotkey_input.setText(self.settings.get('hotkey', 'ctrl+shift+p'))
+        self.save_input.setText(self.settings.get('save_location', ''))
+        self.prefix_input.setText(self.settings.get('file_prefix', ''))
+
+        self.width_spin.blockSignals(True)
+        self.height_spin.blockSignals(True)
+        self.width_spin.setValue(self.settings.get('portrait_width', 607))
+        self.height_spin.setValue(self.settings.get('portrait_height', 1080))
+        self.width_spin.blockSignals(False)
+        self.height_spin.blockSignals(False)
+
+        self.lock_ratio_checkbox.setChecked(self.settings.get('lock_ratio', True))
+
+        if self.settings.get('ratio_mode', '9:16') == '9:16':
+            self.ratio_9_16.setChecked(True)
+        else:
+            self.ratio_16_9.setChecked(True)
+
+        self.copy_to_clipboard_checkbox.setChecked(self.settings.get('copy_to_clipboard', True))
+
+        self.update_ratio_label()
+        self.update_last_region_label()
+
+        # Persist and re-register hotkey if it changed
+        old_hotkey = self.settings.get('hotkey')
+        self.save_settings()
+        if old_hotkey != self.hotkey_input.text():
+            self.register_hotkey()
+
+        QMessageBox.information(self, "Profile Loaded", f'Profile "{name}" loaded successfully!')
+
+    def delete_profile(self):
+        """Delete the selected profile."""
+        name = self.profile_combo.currentText()
+        if name == "— select profile —" or not name:
+            QMessageBox.warning(self, "No Profile Selected", "Please select a profile from the dropdown first.")
+            return
+
+        reply = QMessageBox.question(
+            self, "Delete Profile",
+            f'Are you sure you want to delete the profile "{name}"?',
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        profiles = self.settings.get('profiles', {})
+        if name in profiles:
+            del profiles[name]
+            self.save_settings()
+
+        idx = self.profile_combo.findText(name)
+        if idx >= 0:
+            self.profile_combo.removeItem(idx)
+
+        self.profile_combo.setCurrentIndex(0)
+
+    # ─────────────────────────────────────────────────────────────────────────
+
     def apply_settings(self):
         old_hotkey = self.settings['hotkey']
         
