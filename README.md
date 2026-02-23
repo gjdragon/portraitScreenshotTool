@@ -21,6 +21,8 @@ Designed for creators who frequently capture **9:16 (Shorts/TikTok/Reels)** or *
 - 🔒 **Aspect Ratio Lock**: Maintain perfect ratios while resizing
 - 🌐 **System Tray**: Runs quietly in the background
 - ✨ **Toast Notifications**: Visual feedback on successful captures
+- 💾 **Capture Profiles**: Save and instantly reload complete settings configurations
+- 📐 **Snap to Screen**: One keypress to align the capture area to a full display
 
 ## Quick Start
 
@@ -51,8 +53,8 @@ keyboard>=0.13.5
 
 1. **Launch the app** - Opens in system tray
 2. **Press your hotkey** (default: `Ctrl+Shift+P`) - Opens capture overlay
-3. **Position the rectangle** - Drag to move, resize from edges
-4. **Press Enter or Click "Capture"** - Saves screenshot
+3. **Position the rectangle** - Drag to move, resize from edges/corners
+4. **Press Enter** - Saves screenshot
 5. **Press Esc** - Cancel capture
 
 ### Aspect Ratio Modes
@@ -80,10 +82,22 @@ Access settings from the main window or system tray:
 | Action | Hotkey |
 |--------|--------|
 | Capture Screenshot | `Ctrl+Shift+P` (customizable) |
-| Confirm Capture | `Enter` or `Click` |
+| Confirm Capture | `Enter` |
 | Cancel Capture | `Esc` |
+| Snap to Screen | `S` (while overlay is open) |
 
 ## Smart Features
+
+### Snap to Screen
+On a multi-monitor setup, aligning a full-display capture (e.g. 1920×1080) pixel-perfectly by hand is tricky — it's easy to accidentally clip a neighbouring display. Press **`S`** while the capture overlay is open to instantly snap the rectangle to exactly cover the display it's sitting on. The spinboxes in the main window update automatically to reflect the new size.
+
+### Capture Profiles
+Save your entire configuration — hotkey, save folder, file prefix, dimensions, aspect-ratio mode, and last capture regions — as a named profile. The **Profiles** panel at the top of the main window lets you:
+- **Save as…** — name and store the current settings
+- **Load** — restore a profile in one click; all fields update immediately
+- **Delete** — remove a profile you no longer need
+
+Profiles are great for switching between, say, a 9:16 portrait crop and a full 1080p landscape capture without touching any settings manually.
 
 ### Region Memory
 The app remembers your last capture position **separately** for each mode:
@@ -99,12 +113,17 @@ When you switch modes, dimensions automatically update:
 
 ## File Naming
 
-Screenshots are saved with timestamps:
+### Timestamp mode (default — no prefix set)
 ```
-[prefix]_screenshot_2025-02-07_143052.png
+Portrait_2025-02-07_143052.png
 ```
 
-Default location: `~/Screenshots/`
+### Sequential mode (prefix set)
+```
+picture1.png, picture2.png, picture3.png, ...
+```
+
+Default save location: `~/Screenshots/`
 
 ## Configuration
 
@@ -113,7 +132,7 @@ Settings are stored in:
 ~/.portrait_screenshot_settings.json
 ```
 
-Manual editing supported for advanced users.
+Manual editing supported for advanced users. Profiles are stored under the `profiles` key in the same file.
 
 ## Troubleshooting
 
@@ -126,9 +145,8 @@ Manual editing supported for advanced users.
 - Ensure the app has screen recording permissions (macOS)
 - Check if overlay is behind other windows (try Alt+Tab)
 
-**Wrong screen captured?**
-- Move mouse to desired screen before pressing hotkey
-- The overlay appears on the screen containing your cursor
+**Wrong screen captured on a multi-monitor setup?**
+- Press **`S`** in the overlay to snap the rectangle to the correct display automatically
 
 ### Contributing
 
@@ -153,7 +171,7 @@ MIT License - See LICENSE file for details
 
 ## Acknowledgments
 
-Built with:
+Built with PyQt5 and the `keyboard` library.
 
 ---
 

@@ -308,7 +308,20 @@ class CaptureOverlay(QWidget):
         painter.fillRect(bg_rect, QColor(147, 51, 234))
         painter.drawText(text_x, text_y, dim_text)
         
-        instructions = "ENTER = Capture  |  ESC = Cancel  |  Drag to move  |  Drag edges/corners to resize"
+        # Draw "Snap to Screen" hint near bottom of capture rect
+        snap_text = "Press S to snap to screen"
+        snap_rect_bounds = painter.fontMetrics().boundingRect(snap_text)
+        snap_x = self.capture_rect.center().x() - snap_rect_bounds.width() // 2
+        snap_y = self.capture_rect.bottom() + snap_rect_bounds.height() + 15
+
+        snap_bg = QRect(snap_x - 10, snap_y - snap_rect_bounds.height() - 5,
+                        snap_rect_bounds.width() + 20, snap_rect_bounds.height() + 10)
+        painter.fillRect(snap_bg, QColor(30, 41, 59, 200))
+        painter.setPen(QColor(167, 139, 250))
+        painter.drawText(snap_x, snap_y, snap_text)
+        painter.setPen(Qt.white)
+
+        instructions = "ENTER = Capture  |  ESC = Cancel  |  S = Snap to Screen  |  Drag to move  |  Drag edges/corners to resize"
         inst_rect = painter.fontMetrics().boundingRect(instructions)
         inst_x = self.width() // 2 - inst_rect.width() // 2
         inst_y = self.height() - 50
@@ -474,6 +487,8 @@ class CaptureOverlay(QWidget):
                 self.capture_and_save()
             elif event.key() == Qt.Key_Escape:
                 self.close()
+            elif event.key() == Qt.Key_S:
+                self.snap_to_screen()
     
     def closeEvent(self, event):
         """Release mouse and keyboard grab when closing"""
@@ -510,6 +525,49 @@ class CaptureOverlay(QWidget):
         
         return max_number + 1
     
+    def snap_to_screen(self):
+        """
+        Snap the capture rectangle to exactly cover the screen that contains
+        the centre of the current capture rectangle.
+        Also updates the overlay dimensions signal so the spinboxes stay in sync.
+        """
+        # Find which screen the centre of the capture rect is on
+        centre = self.capture_rect.center()
+        # Convert from widget-local coords to global coords
+        global_centre = centre + self.full_desktop_offset
+
+        target_screen = None
+        for screen in self.screens:
+            if screen.geometry().contains(global_centre):
+                target_screen = screen
+                break
+
+        # Fallback: pick the screen with the most overlap
+        if target_screen is None:
+            global_rect = self.capture_rect.translated(self.full_desktop_offset)
+            best_area = 0
+            for screen in self.screens:
+                intersection = screen.geometry().intersected(global_rect)
+                area = intersection.width() * intersection.height()
+                if area > best_area:
+                    best_area = area
+                    target_screen = screen
+
+        if target_screen is None:
+            return
+
+        geom = target_screen.geometry()
+
+        # Express the screen geometry in widget-local coordinates
+        local_x = geom.x() - self.full_desktop_offset.x()
+        local_y = geom.y() - self.full_desktop_offset.y()
+
+        self.capture_rect = QRect(local_x, local_y, geom.width(), geom.height())
+        self.update()
+
+        # Notify the main window so spinboxes reflect the new size
+        self.update_ui_dimensions.emit(geom.width(), geom.height())
+
     def capture_and_save(self):
         try:
             # Release mouse and keyboard grabs BEFORE showing dialog
@@ -662,7 +720,7 @@ class PortraitScreenshotApp(QMainWindow):
         self.hotkey_thread = None
         self.is_exiting = False
         
-        self.setWindowTitle("Portrait Screenshot Tool v1.9.0")
+        self.setWindowTitle("Portrait Screenshot Tool v1.10.0")
         self.setGeometry(300, 300, 450, 350)
         
         self.init_ui()

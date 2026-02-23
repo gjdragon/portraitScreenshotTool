@@ -1,6 +1,28 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [1.10.0] - 2026-02-23
+
+### Added
+- **Snap to Screen** (`S` key): While in the capture overlay, press `S` to instantly snap the capture rectangle to exactly cover the display it is currently on — no more manual pixel-perfect dragging when you want to capture a full screen
+  - The snap targets the screen whose centre overlaps the capture rectangle; if the centre falls in a gap between monitors it falls back to the screen with the greatest overlap
+  - The dimension spinboxes in the main window update automatically to reflect the snapped size
+  - A visual hint ("Press S to snap to screen") is shown just below the capture rectangle, and the instruction bar at the bottom is updated accordingly
+
+---
+
+## [1.9.0] - 2026-02-23
+
+- **Capture Profiles**: Save and reload complete settings snapshots so you can switch between different capture configurations in one click
+  - A new **Profiles** panel appears above the Settings section with a dropdown list of all saved profiles
+  - **Save as…** — prompts for a name and stores the current hotkey, save folder, file prefix, dimensions, aspect-ratio mode, ratio lock state, clipboard option, and last capture regions for both portrait and landscape modes
+  - **Load** — restores all of the above settings from the selected profile and immediately updates every UI field; the hotkey is re-registered if it changed
+  - **Delete** — removes the selected profile after a confirmation prompt
+  - Multiple profiles are supported; the dropdown is kept sorted alphabetically
+  - Profiles are persisted in the existing `~/.portrait_screenshot_settings.json` file under a `profiles` key, so they survive restarts
+
+---
+
 ## [1.8.1] - 2026-02-07
 
 ### Fixed
@@ -38,7 +60,6 @@ All notable changes to this project will be documented in this file.
 - Legacy `last_capture_rect` key is deprecated but won't affect existing installations
 
 ---
-
 
 ## [1.7.0] - 2026-02-01
 
